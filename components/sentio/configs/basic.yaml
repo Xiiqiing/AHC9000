@@ -1,10 +1,7 @@
 external_components:
   - source: github://nic6911/esphome_components
     refresh: 0s  
-  - source: github://epiclabs-uc/esphome@fix-885-old
-    components: wifi 
-    refresh: 0s
-
+    
 sentio:
     
 select:

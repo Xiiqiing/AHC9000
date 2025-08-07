@@ -18,7 +18,7 @@ sensor:
     force_update: True
     filters:
       - multiply: 0.1
- # ----------- Battery ----------- #
+  # Battery
   - platform:               modbus_controller
     name:                   ${name} Battery ${channel_05_friendly_name}
     id:                     ${device}_battery_${channel_05_id}
@@ -28,16 +28,14 @@ sensor:
       - 0x43
       - 0x01
       - 0x0A
-      - $channel_01_sensor
+      - $channel_05_sensor
       - 0x01
     value_type: U_WORD
     unit_of_measurement: "%"
     accuracy_decimals: 1
     device_class: battery
-    lambda: |-
-      uint16_t raw_battery = (data[2] << 8) | data[3];
-      ESP_LOGD("DEBUG", "Battery raw value: %d", raw_battery);
-      return raw_battery * 10.0;
+    filters:
+      - multiply: 10 
 
 # ----------- Binary ----------- #
 binary_sensor:
@@ -133,3 +131,7 @@ climate:
     target_temp_number_id:  ${device}_target_temp_${channel_05_id}
     mode_switch_sensor_id:  ${device}_standby_${channel_05_id}
     action_sensor_id:       ${device}_output_${channel_05_id}
+    battery_level_sensor_id: ${device}_battery_${channel_05_id}
+
+
+sensor.wavin_wavin_battery_gang
