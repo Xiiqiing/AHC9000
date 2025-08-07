@@ -20,8 +20,8 @@ sensor:
       - multiply: 0.1
  # ----------- Battery ----------- #
   - platform:               modbus_controller
-    name:                   ${name} Battery ${channel_01_friendly_name}
-    id:                     ${device}_battery_${channel_01_id}
+    name:                   ${name} Battery ${channel_05_friendly_name}
+    id:                     ${device}_battery_${channel_05_id}
     modbus_controller_id:   ${device}_modbus_controller
     custom_command: 
       - 0x01
