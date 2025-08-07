@@ -35,7 +35,7 @@ sensor:
     accuracy_decimals: 1
     device_class: battery
     lambda: |-
-
+      return data;
 
 # ----------- Binary ----------- #
 binary_sensor:
