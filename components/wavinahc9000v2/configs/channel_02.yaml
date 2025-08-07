@@ -18,7 +18,7 @@ sensor:
     force_update: True
     filters:
       - multiply: 0.1
-# ----------- Battery ----------- #
+  # Battery
   - platform:               modbus_controller
     name:                   ${name} Battery ${channel_01_friendly_name}
     id:                     ${device}_battery_${channel_01_id}
@@ -34,10 +34,8 @@ sensor:
     unit_of_measurement: "%"
     accuracy_decimals: 1
     device_class: battery
-    lambda: |-
-      uint16_t raw_battery = (data[2] << 8) | data[3];
-      ESP_LOGD("DEBUG", "Battery raw value: %d", raw_battery);
-      return raw_battery * 10.0;
+    filters:
+      - multiply: 10 
 
 # ----------- Binary ----------- #
 binary_sensor:
