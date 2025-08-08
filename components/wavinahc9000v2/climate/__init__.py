@@ -4,12 +4,15 @@ from esphome.components import climate, sensor, switch, number, binary_sensor
 from .. import Wavinahc9000v2, CONF_WAVINAHC9000v2_ID
 from esphome.const import (
     CONF_ID
+    CONF_BATTERY_LEVEL
 )
 
 CONF_TARGET_TEMP = "target_temp_number_id"
 CONF_CURRENT_TEMP = "current_temp_sensor_id"
 CONF_MODE = "mode_switch_sensor_id"
 CONF_ACTION = "action_sensor_id"
+CONF_BATTERY_LEVEL = "battery_level_sensor_id"
+
 
 wavinahc9000v2_ns = cg.esphome_ns.namespace('wavinahc9000v2')
 Wavinahc9000v2Climate = wavinahc9000v2_ns.class_('Wavinahc9000v2Climate', climate.Climate, cg.Component)
@@ -21,6 +24,7 @@ CONFIG_SCHEMA = climate.climate_schema(Wavinahc9000v2Climate).extend({
     cv.Required(CONF_CURRENT_TEMP): cv.use_id(sensor.Sensor),
     cv.Required(CONF_MODE): cv.use_id(switch.Switch),
     cv.Required(CONF_ACTION): cv.use_id(binary_sensor.BinarySensor),
+    cv.Optional(CONF_BATTERY_LEVEL): sensor.sensor_schema(unit_of_measurement=UNIT_PERCENT, icon=ICON_PERCENT, device_class=DEVICE_CLASS_BATTERY),
 }).extend(cv.COMPONENT_SCHEMA)
 
 def to_code(config):
@@ -39,3 +43,6 @@ def to_code(config):
 
     hvac_action = yield cg.get_variable(config[CONF_ACTION])
     cg.add(var.set_hvac_action(hvac_action))
+    
+    bat_sens = yield sensor.new_sensor(config[CONF_BATTERY_LEVEL])
+    cg.add(var.set_battery_level_sensor(bat_sens))

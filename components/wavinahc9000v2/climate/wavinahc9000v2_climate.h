@@ -22,6 +22,10 @@ public:
     this->current_temp_sensor_ = sensor;
   }
 
+  void set_battery_level_sensor(sensor::Sensor *battery_level_sensor) { 
+    battery_level_sensor_ = battery_level_sensor; 
+  }
+
   void set_temp_setpoint_number(number::Number *number) {
     this->temp_setpoint_number_ = number;
   }
@@ -53,6 +57,8 @@ protected:
 
   /// The select component used for getting the current action
   binary_sensor::BinarySensor *hvac_action_{ nullptr };
+
+  sensor::Sensor *battery_level_sensor_{nullptr};
 
 private:
 };

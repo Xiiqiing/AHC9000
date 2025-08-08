@@ -12,6 +12,11 @@ void Wavinahc9000v2Climate::setup() {
     current_temperature = state;
     publish_state();
   });
+  battery_level_sensor_->add_on_state_callback([this](float state) {
+    // ESP_LOGD(TAG, "CURRENT BAT SENSOR CALLBACK: %f", state);
+    battery_level = state;
+    publish_state();
+  });
   temp_setpoint_number_->add_on_state_callback([this](float state) {
     // ESP_LOGD(TAG, "TEMP SETPOINT SENSOR CALLBACK: %f", state);
     target_temperature = state;
