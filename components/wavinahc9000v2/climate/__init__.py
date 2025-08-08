@@ -21,7 +21,7 @@ CONF_BATTERY_LOW     = "battery_low"
 wavinahc9000v2_ns = cg.esphome_ns.namespace('wavinahc9000v2')
 Wavinahc9000v2Climate = wavinahc9000v2_ns.class_('Wavinahc9000v2Climate', climate.Climate, cg.Component)
 
-CONFIG_SCHEMA = climate.CLIMATE_SCHEMA.extend({
+CONFIG_SCHEMA = climate.climate_schema(Wavinahc9000v2Climate).extend({
     cv.GenerateID(): cv.declare_id(Wavinahc9000v2Climate),
 
     # 如无需要，可去掉对顶层组件的引用

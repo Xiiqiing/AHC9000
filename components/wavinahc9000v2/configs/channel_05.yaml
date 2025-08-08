@@ -139,6 +139,6 @@ climate:
     action_sensor_id:       ${device}_output_${channel_05_id}
     battery_level_sensor_id: ${device}_battery_${channel_05_id}
     battery_percent:
-      name: "${name} Battery %"
+      name: "${name} Battery % ${channel_05_friendly_name}"
     battery_low:
-      name: "${name} Battery Low"
+      name: "${name} Battery Low ${channel_05friendly_name}"
