@@ -52,7 +52,7 @@ binary_sensor:
       - 0x01
     bitmask: 0x0010
 
-binary_sensor:
+
   - platform: template
     name: "${channel_05_friendly_name} Battery Low"
     device_class: battery
