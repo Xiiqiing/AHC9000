@@ -14,9 +14,9 @@ void Wavinahc9000v2Climate::setup() {
   });
   battery_level_sensor_->add_on_state_callback([this](float state) {
     // ESP_LOGD(TAG, "CURRENT BAT SENSOR CALLBACK: %f", state);
-    battery_level = state;
+
   // —— 新增：向外部电池实体同步发布 ——
-    float pct = battery_level;             // 如果上游传来的是 0–10，则改成：float pct = battery_level * 10.0f;
+    float pct = state;             // 如果上游传来的是 0–10，则改成：float pct = battery_level * 10.0f;
     if (pct < 0.0f) pct = 0.0f;
     if (pct > 100.0f) pct = 100.0f;
 
