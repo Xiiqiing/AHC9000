@@ -52,6 +52,17 @@ binary_sensor:
       - 0x01
     bitmask: 0x0010
 
+binary_sensor:
+  - platform: template
+    name: "${channel_05_friendly_name} Battery Low"
+    device_class: battery
+    lambda: |-
+      if (id(${device}_battery_${channel_05_id}).state < 20) {
+        return true;
+      } else {
+        return false;
+      }
+
 # ----------- Number ----------- #
 number:
   - platform:               modbus_controller
@@ -131,4 +142,3 @@ climate:
     target_temp_number_id:  ${device}_target_temp_${channel_05_id}
     mode_switch_sensor_id:  ${device}_standby_${channel_05_id}
     action_sensor_id:       ${device}_output_${channel_05_id}
-    battery_level_sensor_id: ${device}_battery_${channel_05_id}
