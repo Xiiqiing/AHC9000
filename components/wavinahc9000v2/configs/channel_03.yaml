@@ -137,3 +137,8 @@ climate:
     target_temp_number_id:  ${device}_target_temp_${channel_03_id}
     mode_switch_sensor_id:  ${device}_standby_${channel_03_id}
     action_sensor_id:       ${device}_output_${channel_03_id}
+    battery_level_sensor_id: ${device}_battery_${channel_03_id}
+    battery_percent:
+      name: "${name} Battery %"
+    battery_low:
+      name: "${name} Battery Low"
