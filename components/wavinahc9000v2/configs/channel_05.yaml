@@ -143,5 +143,4 @@ climate:
     mode_switch_sensor_id:  ${device}_standby_${channel_05_id}
     action_sensor_id:       ${device}_output_${channel_05_id}
     battery_level_sensor_id: ${device}_battery_${channel_05_id}
-sensor.wavin_wavin_battery_gang
 
