@@ -13,6 +13,9 @@ CONF_MODE = "mode_switch_sensor_id"
 CONF_ACTION = "action_sensor_id"
 CONF_BATTERY_LEVEL = "battery_level_sensor_id"
 
+# 新增两个“输出到 HA”的可选实体
+CONF_BATTERY_PERCENT = "battery_percent"
+CONF_BATTERY_LOW     = "battery_low"
 
 wavinahc9000v2_ns = cg.esphome_ns.namespace('wavinahc9000v2')
 Wavinahc9000v2Climate = wavinahc9000v2_ns.class_('Wavinahc9000v2Climate', climate.Climate, cg.Component)
@@ -24,7 +27,19 @@ CONFIG_SCHEMA = climate.climate_schema(Wavinahc9000v2Climate).extend({
     cv.Required(CONF_CURRENT_TEMP): cv.use_id(sensor.Sensor),
     cv.Required(CONF_MODE): cv.use_id(switch.Switch),
     cv.Required(CONF_ACTION): cv.use_id(binary_sensor.BinarySensor),
-    cv.Optional(CONF_BATTERY_LEVEL): sensor.sensor_schema(unit_of_measurement=UNIT_PERCENT, icon=ICON_PERCENT, device_class=DEVICE_CLASS_BATTERY),
+    cv.Optional(CONF_BATTERY_LEVEL): sensor.sensor_schema(
+        unit_of_measurement=UNIT_PERCENT, 
+        icon=ICON_PERCENT, 
+        device_class=DEVICE_CLASS_BATTERY),
+    # 这两个是“新建输出实体”（可选）
+    cv.Optional(CONF_BATTERY_PERCENT): sensor.sensor_schema(
+        unit_of_measurement=UNIT_PERCENT,
+        accuracy_decimals=0,
+        device_class=DEVICE_CLASS_BATTERY,
+    ),
+    cv.Optional(CONF_BATTERY_LOW): binary_sensor.binary_sensor_schema(
+        device_class=DEVICE_CLASS_BATTERY
+    ),
 }).extend(cv.COMPONENT_SCHEMA)
 
 def to_code(config):
@@ -46,3 +61,12 @@ def to_code(config):
     
     bat_sens = yield sensor.new_sensor(config[CONF_BATTERY_LEVEL])
     cg.add(var.set_battery_level_sensor(bat_sens))
+
+    # 新建并绑定“输出到 HA”的实体（可选）
+    if CONF_BATTERY_PERCENT in config:
+        batt_out = yield sensor.new_sensor(config[CONF_BATTERY_PERCENT])
+        cg.add(var.set_battery_percent_sensor(batt_out))
+
+    if CONF_BATTERY_LOW in config:
+        low_out = yield binary_sensor.new_binary_sensor(config[CONF_BATTERY_LOW])
+        cg.add(var.set_battery_low_binary(low_out))

@@ -15,6 +15,17 @@ void Wavinahc9000v2Climate::setup() {
   battery_level_sensor_->add_on_state_callback([this](float state) {
     // ESP_LOGD(TAG, "CURRENT BAT SENSOR CALLBACK: %f", state);
     battery_level = state;
+  // —— 新增：向外部电池实体同步发布 ——
+    float pct = battery_level;             // 如果上游传来的是 0–10，则改成：float pct = battery_level * 10.0f;
+    if (pct < 0.0f) pct = 0.0f;
+    if (pct > 100.0f) pct = 100.0f;
+
+    if (this->battery_percent_sensor_ != nullptr) {
+      this->battery_percent_sensor_->publish_state(pct);
+    }
+    if (this->battery_low_sensor_ != nullptr) {
+      this->battery_low_sensor_->publish_state(pct < this->low_batt_threshold_);
+    }
     publish_state();
   });
   temp_setpoint_number_->add_on_state_callback([this](float state) {
@@ -45,6 +56,17 @@ void Wavinahc9000v2Climate::setup() {
 
   current_temperature = current_temp_sensor_->state;
   target_temperature  = temp_setpoint_number_->state;
+  
+  // —— 新增：启动时用已有状态做一次电池发布（若可用） ——
+  if (this->battery_level_sensor_ != nullptr && !isnan(this->battery_level_sensor_->state)) {
+    float pct0 = this->battery_level_sensor_->state;     // 若需要换算，请改为 *10.0f
+    if (pct0 < 0.0f) pct0 = 0.0f;
+    if (pct0 > 100.0f) pct0 = 100.0f;
+    if (this->battery_percent_sensor_ != nullptr)
+      this->battery_percent_sensor_->publish_state(pct0);
+    if (this->battery_low_sensor_ != nullptr)
+      this->battery_low_sensor_->publish_state(pct0 < this->low_batt_threshold_);
+  }
 }
 
 void Wavinahc9000v2Climate::control(const climate::ClimateCall& call) {

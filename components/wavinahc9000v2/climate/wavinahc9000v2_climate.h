@@ -38,6 +38,10 @@ public:
     this->hvac_action_ = binary_sensor;
   }
 
+  // —— 新增：对外输出电池相关实体（百分比 + 低电量）及阈值 ——
+  void set_battery_percent_sensor(sensor::Sensor *s) { this->battery_percent_sensor_ = s; }
+  void set_battery_low_binary(binary_sensor::BinarySensor *b) { this->battery_low_sensor_ = b; }
+  void set_low_batt_threshold(float pct) { this->low_batt_threshold_ = pct; }
 
 protected:
   /// Override control to change settings of the climate device.
@@ -61,6 +65,10 @@ protected:
   sensor::Sensor *battery_level_sensor_{nullptr};
 
 private:
+  // —— 新增成员：输出的电池百分比 / 低电量实体与阈值 ——
+  sensor::Sensor *battery_percent_sensor_{nullptr};
+  binary_sensor::BinarySensor *battery_low_sensor_{nullptr};
+  float low_batt_threshold_{20.0f};
 };
 } // namespace wavinahc9000v2
 } // namespace esphome
