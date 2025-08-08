@@ -1,5 +1,3 @@
-raise Exception("MARKER: loaded local wavinahc9000v2 climate/__init__.py")
-
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import climate, sensor, switch, number, binary_sensor
