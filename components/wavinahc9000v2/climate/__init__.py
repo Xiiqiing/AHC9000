@@ -11,6 +11,8 @@ CONF_TARGET_TEMP = "target_temp_number_id"
 CONF_CURRENT_TEMP = "current_temp_sensor_id"
 CONF_MODE = "mode_switch_sensor_id"
 CONF_ACTION = "action_sensor_id"
+CONF_BATTERY_LEVEL = "battery_level_sensor_id"
+
 
 wavinahc9000v2_ns = cg.esphome_ns.namespace('wavinahc9000v2')
 Wavinahc9000v2Climate = wavinahc9000v2_ns.class_('Wavinahc9000v2Climate', climate.Climate, cg.Component)
