@@ -42,6 +42,8 @@ protected:
   /// Return the traits of this controller.
   climate::ClimateTraits traits() override;
 
+  void recalc_action_();  // ← 新增：统一重算 hvac_action
+
   /// The sensor used for getting the current temperature
   sensor::Sensor *current_temp_sensor_{ nullptr };
 
@@ -55,6 +57,8 @@ protected:
   binary_sensor::BinarySensor *hvac_action_{ nullptr };
 
 private:
+  bool hvac_output_{false};        // ← 硬件输出当前状态（来自 hvac_action_ 回调）
+  float action_hysteresis_{0.3f};  // ← 判定余量，避免抖动，可按需改
 };
 } // namespace wavinahc9000v2
 } // namespace esphome
