@@ -97,8 +97,3 @@ climate:
     target_temp_number_id:  ${device}_comfort_target_temp_${channel_02_id}
     mode_switch_sensor_id:  ${device}_comfort_standby_${channel_02_id}
     action_sensor_id:       ${device}_output_${channel_02_id}
-    battery_level_sensor_id: ${device}_battery_${channel_02_id}
-    battery_percent:
-      name: "${name} Battery Comfort % ${channel_02_friendly_name}"
-    battery_low:
-      name: "${name} Battery Low Comfort ${channel_02_friendly_name}"
