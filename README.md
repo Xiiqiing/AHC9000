@@ -1,0 +1,1 @@
+This is a modification from github.com/heinekmadsen/esphome_components
