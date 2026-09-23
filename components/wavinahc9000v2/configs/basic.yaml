@@ -1,3 +1,9 @@
+# The channel packages use modbus_controller 'custom_pdu' and write lambdas that call item->queue_pdu();
+# both exist from ESPHome 2026.9.0 on ('custom_command' and the write_lambda 'payload' buffer they replace
+# are removed in 2027.3.0). Older ESPHome stops here with "Your ESPHome version is too old".
+esphome:
+  min_version: 2026.9.0
+
 external_components:
   - source: 
       type: git

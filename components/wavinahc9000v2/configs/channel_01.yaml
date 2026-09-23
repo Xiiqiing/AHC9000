@@ -4,8 +4,7 @@ sensor:
     name:                   ${name} Temperature ${channel_01_friendly_name}
     id:                     ${device}_temp_${channel_01_id}
     modbus_controller_id:   ${device}_modbus_controller
-    custom_command: 
-      - 0x01
+    custom_pdu:
       - 0x43
       - 0x01
       - 0x04
@@ -17,19 +16,18 @@ sensor:
     device_class: temperature
     force_update: True
     lambda: |-
-      for (int i = 0; i < data.size(); i++) {
-        ESP_LOGD("DEBUG", "data[%d] = 0x%02X", i, data[i]);
-      }
-      uint16_t raw_temp = (data[2] << 8) | data[3];
-      ESP_LOGD("DEBUG", "Correct raw_temp assembled: %d", raw_temp);
+      // The register is the last 2 bytes of the reply payload, whatever header ESPHome leaves in `data`.
+      if (data.size() < 2) return NAN;
+      uint16_t raw_temp = (uint16_t(data[data.size() - 2]) << 8) | data[data.size() - 1];
+      ESP_LOGV("wavin", "Channel 01 air temperature raw: %d", raw_temp);
+      if (raw_temp == 0x7FFF) return NAN;  // Wavin: 0x7FFF = temperature not known
       return raw_temp * 0.1;
 # ----------- Battery ----------- #
   - platform:               modbus_controller
     name:                   ${name} Battery ${channel_01_friendly_name}
     id:                     ${device}_battery_${channel_01_id}
     modbus_controller_id:   ${device}_modbus_controller
-    custom_command: 
-      - 0x01
+    custom_pdu:
       - 0x43
       - 0x01
       - 0x0A
@@ -40,8 +38,9 @@ sensor:
     accuracy_decimals: 1
     device_class: battery
     lambda: |-
-      uint16_t raw_battery = (data[2] << 8) | data[3];
-      ESP_LOGD("DEBUG", "Battery raw value: %d", raw_battery);
+      if (data.size() < 2) return NAN;
+      uint16_t raw_battery = (uint16_t(data[data.size() - 2]) << 8) | data[data.size() - 1];
+      ESP_LOGV("wavin", "Channel 01 battery raw: %d", raw_battery);
       return raw_battery * 10.0;
 # ----------- Binary ----------- #
 binary_sensor:
@@ -49,22 +48,26 @@ binary_sensor:
     name:                   ${name} Output ${channel_01_friendly_name}
     id:                     ${device}_output_${channel_01_id}
     modbus_controller_id:   ${device}_modbus_controller
-    custom_command:
-      - 0x01
+    custom_pdu:
       - 0x43
       - 0x03
       - 0x00
       - $channel_01
       - 0x01
     bitmask: 0x0010
+    lambda: |-
+      // TIMER EVENT register, bit 4 (0x0010) = OUTP ON. Decoded here because the built-in bitmask is applied
+      // to the first 2 bytes of `data`, which for a custom function code are header bytes, not the register.
+      // Short reply: keep the last state (an empty optional would publish that built-in header-byte value).
+      if (data.size() < 2) return item->state;
+      return (data[data.size() - 1] & 0x10) != 0;
 # ----------- Number ----------- #
 number:
   - platform:               modbus_controller
     name:                   ${name} Target Temperature ${channel_01_friendly_name}
     id:                     ${device}_target_temp_${channel_01_id}
     modbus_controller_id:   ${device}_modbus_controller
-    custom_command: 
-      - 0x01
+    custom_pdu:
       - 0x43
       - 0x02
       - 0x00
@@ -76,16 +79,18 @@ number:
     max_value: 40
     step: .5
     write_lambda: |-
-      ESP_LOGD("DEBUG", "Trying to write new target temp: %f", x);
-      uint16_t targettemp = x * 10;
-      payload.push_back(0x0144);
-      payload.push_back(0x0200);
-      payload.push_back(${channel_01}01);
-      payload.push_back(targettemp);
-      return true;
+      if (std::isnan(x)) return {};
+      uint16_t targettemp = uint16_t(std::lround(x * 10.0f));  // 6..40 C -> 60..400
+      ESP_LOGD("wavin", "Channel 01: writing target temperature %.1f (raw %d)", x, targettemp);
+      // 0x44 Write Register to Index: PACKED DATA (0x02), MANUAL TEMPERATURE (0x00), page = channel, 1 register.
+      // Sent to the modbus_controller's address (0x01), exactly like main's raw frame 01 44 02 00 ch 01 hi lo.
+      const uint8_t pdu[] = {0x44, 0x02, 0x00, ${channel_01}, 0x01, uint8_t(targettemp >> 8), uint8_t(targettemp & 0xFF)};
+      if (!item->queue_pdu(pdu)) { ESP_LOGW("wavin", "Channel 01: target temperature write refused by the modbus hub"); }
+      return {};
     lambda: |-
-      uint16_t raw_temp = (data[2] << 8) | data[3];
-      ESP_LOGD("DEBUG", "Target temp raw value: %d", raw_temp);
+      if (data.size() < 2) return NAN;
+      uint16_t raw_temp = (uint16_t(data[data.size() - 2]) << 8) | data[data.size() - 1];
+      ESP_LOGV("wavin", "Channel 01 target temperature raw: %d", raw_temp);
       return raw_temp * 0.1;
 # ----------- Switch ----------- #
 switch:
@@ -93,42 +98,26 @@ switch:
     name:                   ${name} Standby ${channel_01_friendly_name}
     id:                     ${device}_standby_${channel_01_id}
     modbus_controller_id:   ${device}_modbus_controller
-    custom_command:
-      - 0x01
+    custom_pdu:
       - 0x43
       - 0x02
       - 0x07
       - $channel_01
       - 0x01
     write_lambda: |-
-      ESP_LOGD("main","Modbus Switch incoming state for channel 01 = %s",ONOFF(x));
-      bool state = ONOFF(x);
-      uint8_t MODE_MASK = 0x07;
-      payload.push_back(0x01);
-      payload.push_back(0x45);
-      payload.push_back(0x02);
-      payload.push_back(0x07); 
-      payload.push_back(${channel_01});       
-      payload.push_back(0x01); 
-      if(x)
-      {
-        ESP_LOGD("main","Pushing back 0x01 because state is %s",ONOFF(x));
-        payload.push_back( 0x01 >> 8);
-        payload.push_back( 0x01 & 0xFF);
-      }
-      else
-      {
-        ESP_LOGD("main","Pushing back 0x00 because state is %s",ONOFF(x));
-        payload.push_back( 0x00 >> 8);
-        payload.push_back( 0x00 & 0xFF);
-      }
-      payload.push_back((~MODE_MASK) >> 8);
-      payload.push_back((~MODE_MASK) & 0xFF);
-      return true;
+      ESP_LOGD("wavin", "Channel 01: standby %s", ONOFF(x));
+      // 0x45 Write Register Masked to Index: PACKED DATA (0x02), CONFIGURATION (0x07), page = channel, 1 register,
+      // data 0x0001 (standby) / 0x0000 (manual), mask 0xFFF8 = only MODE[2:0] changes, every other bit is kept.
+      const uint8_t pdu[] = {0x45, 0x02, 0x07, ${channel_01}, 0x01, 0x00, uint8_t(x ? 0x01 : 0x00), 0xFF, 0xF8};
+      if (!item->queue_pdu(pdu)) { ESP_LOGW("wavin", "Channel 01: standby write refused by the modbus hub"); }
+      return {};
     lambda: |-
-      int mode = data[1];
-      ESP_LOGD("main","MODE for Channel 01 is: %i",mode);    
-      return mode;
+      // CONFIGURATION register, MODE[2:0]: 0 manual, 1 standby, 2 eco, 3 comfort, 4 party, 5 holiday.
+      // Only 1 is standby; the other modes keep heating.
+      if (data.size() < 2) return item->state;
+      uint8_t mode = data[data.size() - 1] & 0x07;
+      ESP_LOGV("wavin", "Channel 01 mode: %d", mode);
+      return mode == 1;
 # ----------- Climate ----------- #
 climate:
   - platform:               wavinahc9000v2
