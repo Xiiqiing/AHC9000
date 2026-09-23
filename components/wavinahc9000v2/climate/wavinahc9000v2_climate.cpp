@@ -18,14 +18,22 @@ static const float TARGET_TEMPERATURE_STEP = 0.5f;
 // 温度传感器精度 0.1 °C
 static const float CURRENT_TEMPERATURE_STEP = 0.1f;
 
-// 下发命令后的保持期：排在写命令之前的轮询仍会读到旧值（ESPHome 2026.9 实测写命令要排队十几秒）。
-// 保持期内只忽略“命令前的旧值”，直到读回与命令一致、温度传感器又被轮询了 COMMAND_HOLD_POLLS 次
-// （写命令排队 + 写入后的读回最多约两个轮询周期），或超过 COMMAND_HOLD_MAX_MS；之后重新以设备状态为准。
+// 下发命令后的保持期：排在写命令之前的轮询仍会读到旧值（ESPHome 2026.9 实测写命令要排队十几秒：
+// Wavin 的 0x44/0x45 不算“写”功能码，和轮询一起按先后排队）。
+// 保持期内只忽略“命令前的旧值”，直到读回与命令一致、目标温度 number 又被轮询读了 COMMAND_HOLD_POLLS 次，
+// 或超过 COMMAND_HOLD_MAX_MS；之后重新以设备状态为准。
+// 用 number 的读数计数：它由 modbus_controller 每个轮询周期读一次（不去重），与 current_temp_sensor 的
+// 刷新频率无关（current 可能是 2 s 刷新的 template 传感器）。额外的 component.update 不会重复计数：
+// 0x43 轮询的 max_pending 为 1，同一请求还在队列里时重复的会被拒绝；所以正常情况下写入前最多只有 1 次旧读数，
+// 4 次和下面的 3 次都留了余量。只有写入本身超时重发（重发排到队尾）时才可能多出旧读数，此时保持期可能提前结束，
+// 最多显示一个周期的旧值（只影响显示）。
+// 本 climate 的 control() 之外的 number 发布都会计数：HA 里直接设置 number，或同一通道另一个 climate
+// （包里的和 Safe 层的共用一个 number）下发目标温度时的乐观发布，都会让本 climate 的保持期提前结束（只影响显示）。
 static const uint8_t COMMAND_HOLD_POLLS = 4;
 static const uint32_t COMMAND_HOLD_MAX_MS = 180000;
-// 待机开关去重：写入后读回与乐观发布相同的值时不会触发回调。命令后已轮询这么多次、开关状态又与命令一致，
-// 就认为写入已确认（第 1 次轮询可能还在写入之前，第 2 次已隔了一个完整周期）
-static const uint8_t STANDBY_CONFIRM_POLLS = 2;
+// 待机开关去重：写入后读回与乐观发布相同的值时不会触发回调。命令后 number 已读了这么多次（正常情况下已在写入之后，
+// 写入之前排队的开关旧读数也都已完成）、开关状态又与命令一致，就认为写入已确认
+static const uint8_t STANDBY_CONFIRM_POLLS = 3;
 
 // 浮点比较：NaN（尚无读数）与 NaN 视为未变化
 static bool same_value(float a, float b) { return (std::isnan(a) && std::isnan(b)) || a == b; }
@@ -36,17 +44,16 @@ void Wavinahc9000v2Climate::setup() {
   current_temp_sensor_->add_on_state_callback([this](float state) {
     // ESP_LOGD(TAG, "CURRENT TEMP SENSOR CALLBACK: %f", state);
     current_temperature = state;
-    // 温度传感器每个轮询周期报告一次、且没有写入路径（number/开关直接在 HA 里设置时也会发布），
-    // 用它来数命令之后过了几个轮询周期
-    if (this->standby_hold_polls_ < 255)
-      this->standby_hold_polls_++;
-    if (this->target_hold_polls_ < 255)
-      this->target_hold_polls_++;
     this->recalc_action_();   // 温度变了，重算动作
   });
   temp_setpoint_number_->add_on_state_callback([this](float state) {
     // ESP_LOGD(TAG, "TEMP SETPOINT SENSOR CALLBACK: %f", state);
     if (!this->in_control_) {
+      // 轮询读数（或 HA 里直接设置 number）：数命令之后读了几次（见 COMMAND_HOLD_POLLS）
+      if (this->standby_hold_polls_ < 255)
+        this->standby_hold_polls_++;
+      if (this->target_hold_polls_ < 255)
+        this->target_hold_polls_++;
       this->target_reading_ = state;   // 设备（或 HA 里直接设置的 number）报告的最新值
       if (this->hold_active_(this->target_hold_, this->target_hold_start_, this->target_hold_polls_)) {
         if (same_setpoint(state, this->target_hold_value_)) {
@@ -190,8 +197,9 @@ void Wavinahc9000v2Climate::recalc_action_(bool force_publish) { //新增的重�
   // mode：待机 → OFF，否则报告最近一次下发的开启模式（默认 HEAT）。
   // 以前开关回调固定写 AUTO，Home App 里选的 HEAT 会被改回 AUTO，磁贴不再按加热着色。
   // 命令保持期内报告命令的状态；开关还没报告过时保持原值（开机为 OFF）。
-  // 保持期结束时开关已被轮询过好几次，状态是新的；若恰好还是写入前的旧值（轮询一直失败），
-  // 下一次读到新值时开关状态会变化、回调会触发，最多晚一个轮询周期纠正。
+  // 保持期结束时开关通常已在写入之后被读过；若还是写入前的旧值（轮询失败，或写入超时重发排到了队尾），
+  // 下一次读到新值时开关状态会变化、回调会触发，
+  // 最多晚一个轮询周期纠正（只影响显示）。
   if (this->standby_hold_ && this->standby_known_ && this->standby_hold_polls_ >= STANDBY_CONFIRM_POLLS &&
       this->mode_switch_->state == this->standby_hold_value_)
     this->standby_hold_ = false;   // 读回与乐观发布相同，被开关去重吞掉了回调：这里确认
