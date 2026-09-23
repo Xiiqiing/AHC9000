@@ -64,9 +64,6 @@ protected:
 private:
   float action_hysteresis_{0.3f};  // ← 判定余量，避免抖动，可按需改
 
-  // 非待机时报告的模式：最近一次下发的开启模式（HEAT 或 AUTO）。不持久化，开机默认 HEAT（Home App 磁贴着色）。
-  climate::ClimateMode on_mode_{climate::CLIMATE_MODE_HEAT};
-
   // control() 执行期间为 true：number/开关在 perform()/turn_*() 里同步触发的回调不单独发布，由 control() 最后统一发布
   bool in_control_{false};
 

@@ -128,9 +128,13 @@ void Wavinahc9000v2Climate::control(const climate::ClimateCall& call) {
 
     if (new_mode == climate::CLIMATE_MODE_AUTO || new_mode == climate::CLIMATE_MODE_HEAT) // 添加加热
     {
-      this->on_mode_ = new_mode;   // 退出待机后报告这个模式
+      // AUTO 与 HEAT 对控制器完全一样（都是退出待机），这里都按 HEAT 处理、只报告 HEAT：
+      // 「家庭」App 只在目标模式为 HEAT 时给磁贴着色，AUTO 下加热时只有温度变橙。
+      // 仍接受 AUTO 命令，免得 HA / MQTT 桥接发来的 auto 报错。
+      if (new_mode == climate::CLIMATE_MODE_AUTO)
+        ESP_LOGD(TAG, "AUTO requested, reporting HEAT");
       // 只在需要退出待机时写 MODE=0（MANUAL）：开关报告待机、还没读到过开关、或刚下发的 OFF 还在保持期。
-      // 不在待机时（MANUAL/ECO/COMFORT/PARTY/HOLIDAY）HEAT↔AUTO 或重复下发只改报告的模式，
+      // 不在待机时（MANUAL/ECO/COMFORT/PARTY/HOLIDAY）HEAT↔AUTO 或重复下发不写总线，
       // 否则会把 ECO/COMFORT 等模式悄悄改成 MANUAL。
       bool off_pending = this->hold_active_(this->standby_hold_, this->standby_hold_start_, this->standby_hold_polls_) &&
                          this->standby_hold_value_;
@@ -194,8 +198,8 @@ bool Wavinahc9000v2Climate::hold_active_(bool &hold, uint32_t start, uint8_t pol
 }
 
 void Wavinahc9000v2Climate::recalc_action_(bool force_publish) { //新增的重算函数
-  // mode：待机 → OFF，否则报告最近一次下发的开启模式（默认 HEAT）。
-  // 以前开关回调固定写 AUTO，Home App 里选的 HEAT 会被改回 AUTO，磁贴不再按加热着色。
+  // mode：待机 → OFF，否则 HEAT（AUTO 也报告为 HEAT，见 control()）。
+  // 以前开关回调固定写 AUTO；「家庭」App 在 AUTO 下不给磁贴着色。
   // 命令保持期内报告命令的状态；开关还没报告过时保持原值（开机为 OFF）。
   // 保持期结束时开关通常已在写入之后被读过；若还是写入前的旧值（轮询失败，或写入超时重发排到了队尾），
   // 下一次读到新值时开关状态会变化、回调会触发，
@@ -204,9 +208,9 @@ void Wavinahc9000v2Climate::recalc_action_(bool force_publish) { //新增的重�
       this->mode_switch_->state == this->standby_hold_value_)
     this->standby_hold_ = false;   // 读回与乐观发布相同，被开关去重吞掉了回调：这里确认
   if (this->hold_active_(this->standby_hold_, this->standby_hold_start_, this->standby_hold_polls_)) {
-    this->mode = this->standby_hold_value_ ? climate::CLIMATE_MODE_OFF : this->on_mode_;
+    this->mode = this->standby_hold_value_ ? climate::CLIMATE_MODE_OFF : climate::CLIMATE_MODE_HEAT;
   } else if (this->standby_known_) {
-    this->mode = this->mode_switch_->state ? climate::CLIMATE_MODE_OFF : this->on_mode_;
+    this->mode = this->mode_switch_->state ? climate::CLIMATE_MODE_OFF : climate::CLIMATE_MODE_HEAT;
   }
 
   if (this->mode == climate::CLIMATE_MODE_OFF) {
