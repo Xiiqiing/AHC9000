@@ -2,9 +2,6 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import climate, sensor, switch, number, binary_sensor
 from .. import Wavinahc9000v2, CONF_WAVINAHC9000v2_ID
-from esphome.const import (
-    CONF_ID
-)
 
 CONF_TARGET_TEMP = "target_temp_number_id"
 CONF_CURRENT_TEMP = "current_temp_sensor_id"
@@ -23,19 +20,18 @@ CONFIG_SCHEMA = climate.climate_schema(Wavinahc9000v2Climate).extend({
     cv.Required(CONF_ACTION): cv.use_id(binary_sensor.BinarySensor),
 }).extend(cv.COMPONENT_SCHEMA)
 
-def to_code(config):
-    var = cg.new_Pvariable(config[CONF_ID])
-    yield cg.register_component(var, config)
-    yield climate.register_climate(var, config)
+async def to_code(config):
+    var = await climate.new_climate(config)
+    await cg.register_component(var, config)
 
-    number_set_temp = yield cg.get_variable(config[CONF_TARGET_TEMP])
+    number_set_temp = await cg.get_variable(config[CONF_TARGET_TEMP])
     cg.add(var.set_temp_setpoint_number(number_set_temp))
 
-    sens_current_temp = yield cg.get_variable(config[CONF_CURRENT_TEMP])
+    sens_current_temp = await cg.get_variable(config[CONF_CURRENT_TEMP])
     cg.add(var.set_current_temp_sensor(sens_current_temp))
 
-    switch_mode = yield cg.get_variable(config[CONF_MODE])
+    switch_mode = await cg.get_variable(config[CONF_MODE])
     cg.add(var.set_mode_switch(switch_mode))
 
-    hvac_action = yield cg.get_variable(config[CONF_ACTION])
+    hvac_action = await cg.get_variable(config[CONF_ACTION])
     cg.add(var.set_hvac_action(hvac_action))
