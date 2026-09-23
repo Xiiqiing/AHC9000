@@ -18,8 +18,9 @@
 ## 要求
 
 - **ESPHome ≥ 2026.9.0**。包里设置了 `min_version`，版本太旧时编译会直接停下。
-- ESP32，esp-idf 和 arduino 框架都可以；再加一个 RS-485 收发器，接到控制器的 Modbus 口，波特率 38400。
+- ESP32，包括 ESP32-C3（作者用的是 `esp32-c3-devkitm-1` + arduino 框架，已测试），esp-idf 框架也能编译；再加一个 RS-485 收发器，接到控制器的 Modbus 口，波特率 38400。
 - `modbus_controller` 的 `address: 1`，`id` 必须是 `${device}_modbus_controller`。
+- 在 `modbus:` 里设 `turnaround_time`（例如 300ms）。ESPHome 2026.7 起默认是 600 ms，5 个房间一轮要约 16 秒。原来 `modbus_controller:` 里的 `command_throttle` 已经不起作用，删掉即可。
 - 每个通道要设置这些替换变量：
   - `channel_XX`：通道索引，`0x00` = 通道 1；
   - `channel_XX_sensor`：该通道温控器（元件）的索引；
@@ -28,37 +29,49 @@
 
 ## 用法（示例）
 
+下面只列出和本组件有关的部分；`wifi`、`api`、`ota`、`logger` 按常规写。更多通道就照 `channel_01` 的样子加替换变量和 `channel_XX.yaml`。
+
 ```yaml
 substitutions:
   device: wavin
   name: Wavin
-  channel_01: "0x00"
-  channel_01_sensor: "0x00"
-  channel_01_id: gang
-  channel_01_friendly_name: "Gang"
+  channel_01: "0x00"            # 通道 1
+  channel_01_sensor: "0x00"     # 该通道温控器的元件索引
+  channel_01_id: channel_01
+  channel_01_friendly_name: "My Bedroom"
+
+esphome:
+  name: ${device}
+
+esp32:
+  board: esp32-c3-devkitm-1     # 按你的板子修改
+  framework:
+    type: arduino
 
 uart:
   - id: uart_${device}
-    rx_pin: GPIO16            # 按你的硬件修改
-    tx_pin: GPIO17
+    rx_pin: 20                  # 按你的硬件修改
+    tx_pin: 21
     baud_rate: 38400
     stop_bits: 1
+    parity: NONE
 
 modbus:
   - id: ${device}_modbus
     uart_id: uart_${device}
-    flow_control_pin: GPIO23  # 按你的硬件修改
-    turnaround_time: 100ms
+    flow_control_pin: 10        # 按你的硬件修改
+    turnaround_time: 300ms      # 收到回复后等多久再发下一条
 
 modbus_controller:
-  - id: ${device}_modbus_controller
-    modbus_id: ${device}_modbus
-    address: 1
+  id: ${device}_modbus_controller
+  address: 1
+  modbus_id: ${device}_modbus
+  update_interval: 15s
 
 packages:
-  wavin:
-    url: https://github.com/Xiiqiing/AHC9000
-    ref: main                 # 也可以钉到 tag 或提交
+  remote_package:
+    url: https://github.com/Xiiqiing/AHC9000/
+    ref: main                   # 也可以钉到 tag 或提交
     refresh: 0s
     files:
       - components/wavinahc9000v2/configs/basic.yaml
